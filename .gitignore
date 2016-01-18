@@ -1,0 +1,15 @@
+# pyenv / pyvenv
+.venv
+.python-version
+venv/
+
+# OS X / Python
+.DS_Store
+*.pyc
+
+# Editors / IDE
+.sublime-*
+.idea/
+
+# Project files
+server.conf

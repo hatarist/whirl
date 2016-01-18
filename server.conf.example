@@ -1,0 +1,4 @@
+address = '127.0.0.1'
+port = 8667
+debug = True
+cookie_secret = 'cr3ate_@_$ecret_k3y'
