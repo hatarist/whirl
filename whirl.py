@@ -69,12 +69,14 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             USERS.remove(self)
 
         elif payload_in['type'] == P_TYPE.JOIN:
-            if self.nickname not in CHANNELS[payload_in['channel']]:
-                CHANNELS[payload_in['channel']].append(self.nickname)
+            channel = payload_in['channel'].lstrip('#')
+            if self.nickname not in CHANNELS[channel]:
+                CHANNELS[channel].append(self.nickname)
 
         elif payload_in['type'] == P_TYPE.LEAVE:
-            if self.nickname in CHANNELS[payload_in['channel']]:
-                CHANNELS[payload_in['channel']].remove(self.nickname)
+            channel = payload_in['channel'].lstrip('#')
+            if self.nickname in CHANNELS[channel]:
+                CHANNELS[channel].remove(self.nickname)
 
         elif payload_in['type'] == P_TYPE.MESSAGE:
             channel = payload_in['dest']
@@ -85,6 +87,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                     dest=channel,
                     message=payload_in['message'],
                 ),
+                # send the channel message only to the people belonging to that channel
                 filter_users=lambda user: user.nickname in CHANNELS[channel]
             )
         elif payload_in['type'] == P_TYPE.LIST:

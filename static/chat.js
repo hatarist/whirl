@@ -66,12 +66,12 @@ function print_response(jsondata) {
             element = render_logout(jsondata['user']);
             break;
         case P_TYPE.JOIN:
-            $target = $('#chat_log');
-            element = render_join(jsondata['user']);
+            $target = $('#chat .messages#' + jsondata['channel']);
+            element = render_join(jsondata['user'], jsondata['channel']);
             break;
         case P_TYPE.LEAVE:
-            $target = $('#chat_log');
-            element = render_leave(jsondata['user']);
+            $target = $('#chat .messages#' + jsondata['channel']);
+            element = render_leave(jsondata['user'], jsondata['channel']);
             break;
         case P_TYPE.LIST:
             update_user_list(jsondata['users']);
@@ -84,6 +84,25 @@ function print_response(jsondata) {
     }
 
     $target.append($("<div>").addClass("row").append(render_date()).append(element));
+}
+
+function create_channel_tab(channel, focus) {
+    $tabbar = $('#channels ul');
+    $tabpane = $('#chat');
+
+    $tabbar.append('<li role="presentation"><a href="#' + channel + '" aria-controls="' +
+                   channel + '" role="tab" data-toggle="tab">#' + channel + '</a></li>');
+
+    $tabpane.append('<div class="messages channel tab-pane" id="' + channel + '"></div>');
+
+    if (focus === true) {
+        $tabbar.find('a[aria-controls=' + channel + ']').click();
+    }
+}
+
+function destroy_channel_tab(channel) {
+    $('#channels li a[aria-controls=' + channel + ']').parent().remove();
+    $('#chat .messages#' + channel).remove();
 }
 
 function print_error(message) {
