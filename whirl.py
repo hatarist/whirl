@@ -35,10 +35,14 @@ class P_TYPE(IntEnum):
 USERS = []  # Stores the active handler instances
 CHANNELS = defaultdict(list)
 
+# Initialize predefined channels:
+for channel in ('django', 'flask', 'tornado'):
+    CHANNELS[channel]
+
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render("index.html")
+        self.render("index.html", channels=CHANNELS)
 
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
@@ -60,18 +64,28 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         if payload_in['type'] == P_TYPE.LOGIN:
             self.user_login(payload_in['user'])
             self.user_list()
+
         elif payload_in['type'] == P_TYPE.LOGOUT:
             USERS.remove(self)
+
         elif payload_in['type'] == P_TYPE.JOIN:
-            CHANNELS[payload_in['channel']].append(self.nickname)
+            if self.nickname not in CHANNELS[payload_in['channel']]:
+                CHANNELS[payload_in['channel']].append(self.nickname)
+
         elif payload_in['type'] == P_TYPE.LEAVE:
-            CHANNELS[payload_in['channel']].remove(self.nickname)
+            if self.nickname in CHANNELS[payload_in['channel']]:
+                CHANNELS[payload_in['channel']].remove(self.nickname)
+
         elif payload_in['type'] == P_TYPE.MESSAGE:
+            channel = payload_in['dest']
+
             self.broadcast_message(
                 self.generate_payload(
                     P_TYPE.MESSAGE,
+                    dest=channel,
                     message=payload_in['message'],
-                )
+                ),
+                filter_users=lambda user: user.nickname in CHANNELS[channel]
             )
         elif payload_in['type'] == P_TYPE.LIST:
             self.user_list()
@@ -92,16 +106,9 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             self.generate_payload(P_TYPE.LIST, users=[c.nickname for c in USERS])
         )
 
-    def broadcast_message(self, payload, except_self=False):
-        """Sends a websocket message to all connected clients.
-except_self being True prevents the message to be sent to its own sender,
-since we don't need to notify the user about him/her being disconnected
-from the server."""
-
-        for c in USERS:
-            if except_self and c == self:
-                continue
-
+    def broadcast_message(self, payload, filter_users=None):
+        """Sends a websocket message to all connected clients."""
+        for c in filter(filter_users, USERS):
             if c.logged_in:
                 c.write_message(payload)
 
@@ -120,7 +127,10 @@ It's ought to be sent to the client right after that."""
         return json_encode(result)
 
     def on_close(self):
-        self.broadcast_message(self.generate_payload(P_TYPE.LOGOUT), except_self=True)
+        self.broadcast_message(
+            self.generate_payload(P_TYPE.LOGOUT),
+            filter_users=lambda user: user != self  # exclude the user him/herself
+        )
         USERS.remove(self)
 
 

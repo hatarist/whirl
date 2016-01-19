@@ -16,12 +16,12 @@ function render_logout(user) {
     return $("<span>").addClass("notification").text(user + " has quit");
 }
 
-function render_join(user) {
-    return $("<span>").addClass("notification").text(user + " joined the only chat room");
+function render_join(channel, user) {
+    return $("<span>").addClass("notification").text(user + " joined " + channel);
 }
 
-function render_leave(user) {
-    return $("<span>").addClass("notification").text(user + " left the only chat room");
+function render_leave(channel, user) {
+    return $("<span>").addClass("notification").text(user + " left " + channel);
 }
 
 function render_error(message) {
@@ -51,27 +51,36 @@ var P_TYPE = {
 
 function print_response(jsondata) {
     var element, $target;
-    if(jsondata['type'] == P_TYPE.MESSAGE) {
-        $target = $('#chat_log');
-        element = render_message(jsondata['user'], jsondata['message']);
-    } else if(jsondata['type'] == P_TYPE.LOGIN) {
-        $target = $('#console_log');
-        element = render_login(jsondata['user']);
-    } else if(jsondata['type'] == P_TYPE.LOGOUT) {
-        $target = $('#console_log');
-        element = render_logout(jsondata['user']);
-    } else if(jsondata['type'] == P_TYPE.JOIN) {
-        $target = $('#chat_log');
-        element = render_join(jsondata['user']);
-    } else if(jsondata['type'] == P_TYPE.LEAVE) {
-        $target = $('#chat_log');
-        element = render_leave(jsondata['user']);
-    } else if(jsondata['type'] == P_TYPE.LIST) {
-        update_user_list(jsondata['users']);
-        return;
-    } else if(jsondata['type'] == P_TYPE.ERROR) {
-        $target = $('#console_log');
-        element = render_error(jsondata['message'])
+
+    switch (jsondata['type']) {
+        case P_TYPE.MESSAGE:
+            $target = $('#chat .messages#' + jsondata['dest']);
+            element = render_message(jsondata['user'], jsondata['message']);
+            break;
+        case P_TYPE.LOGIN:
+            $target = $('#console_log');
+            element = render_login(jsondata['user']);
+            break;
+        case P_TYPE.LOGOUT:
+            $target = $('#console_log');
+            element = render_logout(jsondata['user']);
+            break;
+        case P_TYPE.JOIN:
+            $target = $('#chat_log');
+            element = render_join(jsondata['user']);
+            break;
+        case P_TYPE.LEAVE:
+            $target = $('#chat_log');
+            element = render_leave(jsondata['user']);
+            break;
+        case P_TYPE.LIST:
+            update_user_list(jsondata['users']);
+            return;
+        case P_TYPE.ERROR: {
+            $target = $('#console_log');
+            element = render_error(jsondata['message'])
+            break;
+        }
     }
 
     $target.append($("<div>").addClass("row").append(render_date()).append(element));
@@ -79,7 +88,11 @@ function print_response(jsondata) {
 
 function print_error(message) {
     element = render_error(message);
-    $('#console_log').append($("<div>").addClass("row").append(render_date()).append(element));
+
+    active_pane = $('.navbar-nav .active a').attr('href');
+    $target = active_pane == '#chat' ? $('.messages.channel.active') : $('#console_log');
+
+    $target.append($("<div>").addClass("row").append(render_date()).append(element));
 }
 
 function send_message(message) {
@@ -92,9 +105,7 @@ function send_message(message) {
         }
 
         var split = message.split(" ");
-        if(split.length != 2) {
-            return;
-        }
+        if(split.length != 2) return;
         var nick = split[1];
 
         // Create a WS connection
@@ -113,6 +124,20 @@ function send_message(message) {
         ws.onclose = function() {};
 
         return;
+    } else if (message.search("/join") == 0) {
+        var split = message.split(" ");
+        if(split.length != 2) return;
+        var channel = split[1];
+
+        ws.send(generate_payload_join(channel));
+        return;
+    } else if (message.search("/leave") == 0) {
+        var split = message.split(" ");
+        if(split.length != 2) return;
+        var channel = split[1];
+
+        ws.send(generate_payload_leave(channel));
+        return;
     }
 
     if (typeof ws === 'undefined') {
@@ -120,14 +145,15 @@ function send_message(message) {
         return;
     }
 
-    $('#chat-menu').click();
-    $("#input").focus();
-    return ws.send(generate_payload_message(message));
+    var active_pane = $('.navbar-nav .active a').attr('href');
+    var active_channel = active_pane == '#chat' ? $('#channels .active a').attr('aria-controls') : null;
+    return ws.send(generate_payload_message(active_channel, message));
 }
 
-function generate_payload_message(message) {
+function generate_payload_message(dest, message) {
     return JSON.stringify({
         'type': P_TYPE.MESSAGE,
+        'dest': dest,
         'message': message
     });
 }
@@ -144,9 +170,19 @@ function generate_payload_login(name) {
     });
 }
 
-$(function() {
-    $('#input').focus();
+function generate_payload_join(channel) {
+    return JSON.stringify({
+        'type': P_TYPE.JOIN, 'channel': channel
+    });
+}
 
+function generate_payload_leave(channel) {
+    return JSON.stringify({
+        'type': P_TYPE.LEAVE, 'channel': channel
+    });
+}
+
+$(function() {
     $('form[name=chat]').submit(function(e) {
         send_message($('#input').val());
         $('#input').val('');
@@ -160,12 +196,10 @@ $(function() {
       }
     });
 
-    $(".nav a").click(function(e) {
-       $(".nav .active").removeClass("active");
-       $(this).parent().addClass("active");
-       $('#input').focus();
+    $('.nav a').click(function() {
+        $('#input').focus();
     });
-    
+
     $("#console-menu").click(function(e) {
         $("#console-content").show();
         $("#chat-content").hide();

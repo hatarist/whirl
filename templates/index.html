@@ -17,10 +17,10 @@
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
             <li class="active">
-              <a href="#console" id="console-menu">Console</a>
+              <a href="#console" id="console-menu" aria-controls="console-content" role="tab" data-toggle="tab">Console</a>
             </li>
             <li>
-              <a href="#chat" id="chat-menu">Chat</a>
+              <a href="#chat" id="chat-menu" aria-controls="chat-content" role="tab" data-toggle="tab">Chat</a>
             </li>
           </ul>
         </div>
@@ -42,9 +42,19 @@
       </div>
 
       <div class="row" id="chat-content" style="display:none;">
-        <div class="col-md-2" id="channels"></div>
-        <div class="col-md-8" id="chat">
-          <div class="messages" id="chat_log"></div>
+        <div class="col-md-2" id="channels">
+          <ul class="nav nav-pills nav-stacked">
+            {% for channel in channels %}
+            <li role="presentation">
+              <a href="#{{ channel }}" aria-controls="{{ channel }}" role="tab" data-toggle="tab">#{{ channel }}</a>
+            </li>
+            {% end %}
+          </ul>
+        </div>
+        <div class="tab-content col-md-8" id="chat">
+          {% for channel in channels %}
+            <div class="messages channel tab-pane" id="{{ channel }}"></div>
+          {% end %}
         </div>
         <div class="col-md-2" id="users"></div>
       </div>
