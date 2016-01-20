@@ -16,12 +16,12 @@ function render_logout(user) {
     return $("<span>").addClass("notification").text(user + " has quit");
 }
 
-function render_join(channel, user) {
-    return $("<span>").addClass("notification").text(user + " joined " + channel);
+function render_join(user, channel) {
+    return $("<span>").addClass("notification").text(user + " joined #" + channel);
 }
 
-function render_leave(channel, user) {
-    return $("<span>").addClass("notification").text(user + " left " + channel);
+function render_leave(user, channel) {
+    return $("<span>").addClass("notification").text(user + " left #" + channel);
 }
 
 function render_error(message) {
@@ -156,6 +156,9 @@ function send_message(message) {
         var channel = split[1];
 
         ws.send(generate_payload_leave(channel));
+        return;
+    } else if (message.search("/list") == 0) {
+        ws.send(generate_payload_list());
         return;
     }
 

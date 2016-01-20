@@ -63,21 +63,30 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 
         if payload_in['type'] == P_TYPE.LOGIN:
             self.user_login(payload_in['user'])
-            self.user_list()
 
         elif payload_in['type'] == P_TYPE.LOGOUT:
-            USERS.remove(self)
+            self.close()  # Closes the WebSocket connection
 
         elif payload_in['type'] == P_TYPE.JOIN:
             channel = payload_in['channel'].lstrip('#')
             if self.nickname not in CHANNELS[channel]:
                 CHANNELS[channel].append(self.nickname)
 
+            self.broadcast_message(
+                self.generate_payload(P_TYPE.JOIN, channel=channel),
+                # send the channel message only to the people belonging to that channel
+                filter_users=lambda user: user.nickname in CHANNELS[channel]
+            )
         elif payload_in['type'] == P_TYPE.LEAVE:
             channel = payload_in['channel'].lstrip('#')
             if self.nickname in CHANNELS[channel]:
                 CHANNELS[channel].remove(self.nickname)
 
+            self.broadcast_message(
+                self.generate_payload(P_TYPE.LEAVE, channel=channel),
+                # send the channel message only to the people belonging to that channel
+                filter_users=lambda user: user.nickname in CHANNELS[channel]
+            )
         elif payload_in['type'] == P_TYPE.MESSAGE:
             channel = payload_in['dest']
 
@@ -100,6 +109,13 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.write_message(
             self.generate_payload(P_TYPE.LIST, users=[c.nickname for c in USERS])
         )
+
+    def user_logout(self):
+        self.broadcast_message(
+            self.generate_payload(P_TYPE.LOGOUT),
+            filter_users=lambda user: user != self  # exclude the user him/herself
+        )
+        USERS.remove(self)
 
     def user_in_channels(self):
         return [channel for channel, users in CHANNELS.items() if self.nickname in users]
@@ -130,11 +146,7 @@ It's ought to be sent to the client right after that."""
         return json_encode(result)
 
     def on_close(self):
-        self.broadcast_message(
-            self.generate_payload(P_TYPE.LOGOUT),
-            filter_users=lambda user: user != self  # exclude the user him/herself
-        )
-        USERS.remove(self)
+        self.user_logout()
 
 
 class Application(tornado.web.Application):
