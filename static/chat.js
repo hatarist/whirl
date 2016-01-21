@@ -1,6 +1,6 @@
-function render_date() {
-    var date = new Date();
-    var formattedDate = '[' + ("0" + date.getHours()).slice(-2) + ":" + ("0" + date.getMinutes()).slice(-2) + '] ';
+function render_date(unixtime) {
+    date = new Date(unixtime * 1000);
+    formattedDate = '[' + ("0" + date.getHours()).slice(-2) + ":" + ("0" + date.getMinutes()).slice(-2) + '] ';
     return $("<span>").addClass("timestamp").text(formattedDate);
 }
 
@@ -109,7 +109,7 @@ function print_response(jsondata) {
         }
     }
 
-    $target.append($("<div>").addClass("row").append(render_date()).append(element));
+    $target.append($('<div class="row">').append(render_date(jsondata['time'])).append(element));
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
 }
 
@@ -124,7 +124,7 @@ function print_error(message) {
         $target = $('#console_log');
     }
 
-    $target.append($("<div>").addClass("row").append(render_date()).append(element));
+    $target.append($('<div class="row">').append(render_date(jsondata['time'])).append(element));
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
 }
 

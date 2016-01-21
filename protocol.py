@@ -1,3 +1,4 @@
+import time
 import re
 
 from collections import defaultdict
@@ -59,7 +60,10 @@ send a message to a disconnected user."""
     def _generate_payload(self, p_type, **kwargs):
         """A simple helper function that returns a dictionary suitable for the given message type.
 It's ought to be sent to the client right after that."""
-        result = {'type': p_type}
+        result = {
+            'type': p_type,
+            'time': time.time(),
+        }
 
         if p_type in (P_TYPE.MESSAGE, P_TYPE.REGISTER, P_TYPE.LOGIN,
                       P_TYPE.LOGOUT, P_TYPE.JOIN, P_TYPE.LEAVE):
