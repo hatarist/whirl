@@ -1,3 +1,5 @@
+import re
+
 from collections import defaultdict
 from enum import IntEnum
 
@@ -15,6 +17,31 @@ class P_TYPE(IntEnum):
     LEAVE = 5
     LIST = 6
     ERROR = -1
+
+
+class ValidationError(Exception):
+    pass
+
+
+def validate_username(username):
+    if not re.match(r'\w{2,20}$', username):
+        raise ValidationError(
+            'Username should contain 2-20 characters (only letters, numbers and underscores).'
+        )
+
+
+def validate_channel(channel):
+    if not re.match(r'\w{2,16}$', channel):
+        raise ValidationError(
+            'Channel should contain 2-16 characters (only letters, numbers and underscores).'
+        )
+
+
+def validate_message(message):
+    if not re.match(r'.{1,2048}$', message):
+        raise ValidationError(
+            'Message should contain 1-2048 characters.'
+        )
 
 
 class ChatServerMixin(object):
@@ -62,6 +89,12 @@ It's ought to be sent to the client right after that."""
         self.write_message(self._generate_payload(P_TYPE.ERROR, message=message, **kwargs))
 
     def user_login(self, nick):
+        try:
+            validate_username(nick)
+        except ValidationError as e:
+            self.send_error(str(e))
+            return
+
         self.nickname = nick
         self.logged_in = True
         self._broadcast_message(self._generate_payload(P_TYPE.LOGIN))
@@ -152,19 +185,51 @@ If `broadcast` is set, also sends a list of users to everybody in that channel."
 
         elif payload['type'] == P_TYPE.JOIN:
             channel = payload['channel'].lstrip('#')
+
+            try:
+                validate_channel(channel)
+            except ValidationError as e:
+                self.send_error(str(e))
+                return
+
             self.user_join(channel)
             self.user_list(channel=channel, broadcast=True)
 
         elif payload['type'] == P_TYPE.LEAVE:
             channel = payload['channel'].lstrip('#')
+
+            try:
+                validate_channel(channel)
+            except ValidationError as e:
+                self.send_error(str(e))
+                return
+
             self.user_leave(channel)
             self.user_list(channel=channel, broadcast=True)
 
         elif payload['type'] == P_TYPE.MESSAGE:
             channel = payload['dest'].lstrip('#')
             message = payload['message']
+
+            try:
+                validate_channel(channel)
+                validate_message(message)
+            except ValidationError as e:
+                self.send_error(str(e))
+                return
+
             self.send_message(channel, message)
 
         elif payload['type'] == P_TYPE.LIST:
             channel = payload.get('channel')
+
+            if channel:
+                channel = channel.lstrip('#')
+
+                try:
+                    validate_channel(channel)
+                except ValidationError as e:
+                    self.send_error(str(e))
+                    return
+
             self.user_list(channel=channel)
