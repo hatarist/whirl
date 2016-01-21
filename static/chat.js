@@ -157,7 +157,7 @@ function get_current_channel() {
 function send_message(message) {
     if (message.search("/login") == 0) {
 
-        if (typeof ws !== 'undefined') {
+        if (typeof ws !== 'undefined' && ws.readyState !== ws.CLOSED) {
             // WS is already opened, no way we're allowing to create an another one!
             print_error("You're already logged in.");
             return;

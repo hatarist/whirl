@@ -113,7 +113,10 @@ It's ought to be sent to the client right after that."""
             self.user_leave(channel)
             self.user_list(channel=channel, broadcast=True)
 
-        self.USERS.remove(self)
+        try:
+            self.USERS.remove(self)
+        except ValueError:
+            pass
 
     # Channel-related commands
 
