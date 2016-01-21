@@ -20,6 +20,7 @@ Every response also has a `time` parameter, which is floating point number and c
  - `4` - user joining channel
  - `5` - user leaving channel
  - `6` - list server/channel users
+ - `7` - channel action
  - `-1` - error message
 
 ### Commands:
@@ -106,7 +107,7 @@ Key         | Type | Value           | Notes
 ----------- | ---- | --------------- | -----
 `type`      | int  | `0`             |
 `dest`      | str  | `'#tornado'`    |
-`message`   | str  | `'hello world`  | 1-2048 character limit
+`message`   | str  | `'hello world'` | 1-2048 character limit
 
 ##### Client receives:
 
@@ -115,11 +116,42 @@ Key         | Type  | Value            | Notes
 `type`      | int   | `0`              |
 `time`      | float | `1453338500.966` |
 `dest`      | str   | `'tornado'`      |
-`message`   | str   | `'hello world`   |
+`message`   | str   | `'hello world'`  |
 `user`      | str   | `'sender'`       |
 `history`   | bool  | `true`           | (optional) Flags the message as channel's history log
 
 The server broadcasts the response message to everybody who have joined the channel the message was sent to; the server also adds a `user` parameter which contains the nickname of the sender.
+
+#### Send an action
+
+##### Client sends:
+
+Key         | Type | Value           | Notes
+----------- | ---- | --------------- | -----
+`type`      | int  | `7`             |
+`dest`      | str  | `'#tornado'`    |
+`message`   | str  | `'ate a berry'` | 1-2048 character limit
+
+##### Client receives:
+
+Key         | Type  | Value            | Notes
+----------- | ----- | ---------------- | -----
+`type`      | int   | `7`              |
+`time`      | float | `1453338500.966` |
+`dest`      | str   | `'tornado'`      |
+`message`   | str   | `'ate a berry'`  | Action taken on behalf of the user.
+`user`      | str   | `'berry_eater'`  |
+`history`   | bool  | `true`           | (optional) Flags the message as channel's history log
+
+This behaves exactly the same as the MESSAGE command, just has a different purpose.
+
+Command type | Message displayed
+-----------: | :----------------
+     message | <maintainer> friday night production deploy ftw!
+     message | <nagios> SERVER IS DOWN
+      action | _* maintainer screwed up_
+     message | <maintainer> :(
+
 
 #### List connected users
 

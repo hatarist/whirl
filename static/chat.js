@@ -9,7 +9,11 @@ function render_date(unixtime) {
 }
 
 function render_message(user, message) {
-    return $("<span>").addClass("message").text('<' + user + '> '+ message);
+    return $("<span>").addClass("message").text('<' + user + '> ' + message);
+}
+
+function render_action(user, message) {
+    return $("<span>").addClass("action").text('* ' + user + ' ' + message);
 }
 
 function render_login(user) {
@@ -56,6 +60,7 @@ var P_TYPE = {
     JOIN: 4,
     LEAVE: 5,
     LIST: 6,
+    ACTION: 7,
     ERROR: -1,
 }
 
@@ -92,6 +97,10 @@ function print_response(jsondata, is_history) {
         case P_TYPE.MESSAGE:
             $target = $('#chats .chat#' + jsondata['dest'] + ' .messages');
             element = render_message(jsondata['user'], jsondata['message']);
+            break;
+        case P_TYPE.ACTION:
+            $target = $('#chats .chat#' + jsondata['dest'] + ' .messages');
+            element = render_action(jsondata['user'], jsondata['message']);
             break;
         case P_TYPE.LOGIN:
             $target = $('#chats .console .messages');
@@ -192,6 +201,13 @@ function ws_connect() {
 }
 
 function send_message(message) {
+    channel = get_current_channel();
+
+    if (typeof $ws === 'undefined') {
+        print_error("Can't send a message without a connection.");
+        return;
+    }
+
     if (message.search("/join") == 0) {
         var split = message.split(" ");
         if(split.length != 2) return;
@@ -214,20 +230,25 @@ function send_message(message) {
     } else if (message.search("/list") == 0) {
         $ws.send(generate_payload_list());
         return;
-    }
-
-    if (typeof $ws === 'undefined') {
-        print_error("Can't send a message without a connection. Please log in first.");
+    } else if (message.search("/me") == 0) {
+        $ws.send(generate_payload_action(channel, message.substring(4)));
         return;
     }
 
-    channel = get_current_channel();
     if (channel) return $ws.send(generate_payload_message(channel, message));
 }
 
 function generate_payload_message(dest, message) {
     return JSON.stringify({
         'type': P_TYPE.MESSAGE,
+        'dest': dest,
+        'message': message
+    });
+}
+
+function generate_payload_action(dest, message) {
+    return JSON.stringify({
+        'type': P_TYPE.ACTION,
         'dest': dest,
         'message': message
     });

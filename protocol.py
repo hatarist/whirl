@@ -17,6 +17,7 @@ class P_TYPE(IntEnum):
     JOIN = 4
     LEAVE = 5
     LIST = 6
+    ACTION = 7
     ERROR = -1
 
 
@@ -71,7 +72,7 @@ It's ought to be sent to the client right after that."""
         }
 
         if p_type in (P_TYPE.MESSAGE, P_TYPE.REGISTER, P_TYPE.LOGIN,
-                      P_TYPE.LOGOUT, P_TYPE.JOIN, P_TYPE.LEAVE):
+                      P_TYPE.LOGOUT, P_TYPE.JOIN, P_TYPE.LEAVE, P_TYPE.ACTION):
             result.update({'user': self.nickname})
 
         result.update(kwargs)
@@ -157,8 +158,11 @@ It's ought to be sent to the client right after that."""
         self.CHANNELS[channel].remove(self.nickname)
         self.update_history(channel, payload)
 
-    def send_message(self, channel, message):
-        payload = self._generate_payload(P_TYPE.MESSAGE, dest=channel, message=message)
+    def send_message(self, channel, message, msg_type=None):
+        if msg_type is None:
+            msg_type = P_TYPE.MESSAGE
+
+        payload = self._generate_payload(msg_type, dest=channel, message=message)
         self._channel_message(channel, payload)
         self.update_history(channel, payload)
 
@@ -190,16 +194,10 @@ If `broadcast` is set, also sends a list of users to everybody in that channel."
 
     def handle_command(self, payload):
         """This method handles API requests."""
-        if payload['type'] == P_TYPE.LOGIN:
-            nickname = payload['user']
-            self.user_login(nickname)
-
-        elif payload['type'] == P_TYPE.LOGOUT:
-            self.user_logout()
-            self.close()
-
-        elif payload['type'] == P_TYPE.JOIN:
-            channel = payload['channel'].lstrip('#')
+        # Common parameter: `channel`
+        if payload['type'] in (P_TYPE.JOIN, P_TYPE.LEAVE, P_TYPE.MESSAGE,
+                               P_TYPE.ACTION, P_TYPE.LIST):
+            channel = payload.get('channel', payload.get('dest')).lstrip('#')
 
             try:
                 validate_channel(channel)
@@ -207,44 +205,30 @@ If `broadcast` is set, also sends a list of users to everybody in that channel."
                 self.send_error(str(e))
                 return
 
-            self.user_join(channel)
-            self.user_list(channel=channel, broadcast=True)
-
-        elif payload['type'] == P_TYPE.LEAVE:
-            channel = payload['channel'].lstrip('#')
-
-            try:
-                validate_channel(channel)
-            except ValidationError as e:
-                self.send_error(str(e))
-                return
-
-            self.user_leave(channel)
-            self.user_list(channel=channel, broadcast=True)
-
-        elif payload['type'] == P_TYPE.MESSAGE:
-            channel = payload['dest'].lstrip('#')
+        # Common parameter: `message`
+        if payload['type'] in (P_TYPE.MESSAGE, P_TYPE.ACTION):
             message = payload['message']
 
             try:
-                validate_channel(channel)
                 validate_message(message)
             except ValidationError as e:
                 self.send_error(str(e))
                 return
 
-            self.send_message(channel, message)
+            self.send_message(channel, message, msg_type=payload['type'])
 
+        # Actual command handling
+        if payload['type'] == P_TYPE.LOGIN:
+            nickname = payload['user']
+            self.user_login(nickname)
+        elif payload['type'] == P_TYPE.LOGOUT:
+            self.user_logout()
+            self.close()
+        elif payload['type'] == P_TYPE.JOIN:
+            self.user_join(channel)
+            self.user_list(channel=channel, broadcast=True)
+        elif payload['type'] == P_TYPE.LEAVE:
+            self.user_leave(channel)
+            self.user_list(channel=channel, broadcast=True)
         elif payload['type'] == P_TYPE.LIST:
-            channel = payload.get('channel')
-
-            if channel:
-                channel = channel.lstrip('#')
-
-                try:
-                    validate_channel(channel)
-                except ValidationError as e:
-                    self.send_error(str(e))
-                    return
-
             self.user_list(channel=channel)

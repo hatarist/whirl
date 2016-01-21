@@ -23,6 +23,10 @@ span.notification {
   font-style: italic;
 }
 
+span.action {
+  font-style: italic;
+}
+
 span.error {
   color: #a00;
 }
