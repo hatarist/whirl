@@ -112,6 +112,7 @@ class RegisterHandler(AuthHandler):
             self.application.db.add(user)
             self.application.db.commit()
         except IntegrityError:
+            self.application.db.rollback()
             self.render("register.html", success=False, message="Username is already taken.")
 
         self.render("login.html", success=True)
