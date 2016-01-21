@@ -36,10 +36,10 @@ function update_user_list(users, channel) {
     }
 
     $user_list.empty();
-    var $users = $("<ul>").addClass("nav nav-list");
+    var $users = $("<ul>").addClass("nav nav-list nav-stacked");
     $users.append($("<li>").addClass("col-header").text("Users"));
     for(var idx in users) {
-        $users.append($("<li>").append(users[idx]));
+        $users.append($("<li>").append($("<a>").append(users[idx])));
     };
     $user_list.append($users);
 }
@@ -56,6 +56,12 @@ var P_TYPE = {
 }
 
 function handle_response(jsondata) {
+    if (jsondata['history'] === true) {
+        create_channel_tab(jsondata['channel'] || jsondata['dest']);
+        print_response(jsondata, true);
+        return;
+    }
+
     switch (jsondata['type']) {
         case P_TYPE.JOIN:
             if (jsondata['user'] === window.nick) create_channel_tab(jsondata['channel']);
@@ -75,7 +81,7 @@ function handle_response(jsondata) {
     print_response(jsondata);
 }
 
-function print_response(jsondata) {
+function print_response(jsondata, is_history) {
     var element, $target;
 
     switch (jsondata['type']) {
@@ -109,7 +115,8 @@ function print_response(jsondata) {
         }
     }
 
-    $target.append($('<div class="row">').append(render_date(jsondata['time'])).append(element));
+    row_class = (is_history === true) ? 'row history' : 'row';
+    $target.append($('<div class="' + row_class + '">').append(render_date(jsondata['time'])).append(element));
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
 }
 
@@ -128,7 +135,15 @@ function print_error(message) {
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
 }
 
+function channel_tab_exists(channel) {
+    return $('#channels ul li a[aria-controls=' + channel + ']').length > 0;
+}
+
 function create_channel_tab(channel, focus) {
+    if (channel_tab_exists(channel)) {
+        return;
+    }
+
     $tabbar = $('#channels ul');
     $tabcontainer = $('#chats');
 

@@ -57,12 +57,13 @@ Key         | Type | Value        | Notes
 
 ##### Client receives:
 
-Key         | Type  | Value
------------ | ----- | -----
-`type`      | int   | `4`
-`time`      | float | `1453338500.966`
-`channel`   | str   | `'tornado'`
-`user`      | str   | `'new_user'`
+Key         | Type  | Value            | Notes
+----------- | ----- | ---------------- | -----
+`type`      | int   | `4`              |
+`time`      | float | `1453338500.966` |
+`channel`   | str   | `'tornado'`      |
+`user`      | str   | `'new_user'`     |
+`history`   | bool  | `true`           | (optional) Flags the message as channel's history log
 
 The sharp symbols at the beginning of the `channel` parameter are optional and are stripped by the server - so `django` and `#django` are the same channels.
 
@@ -79,14 +80,15 @@ Key         | Type | Value
 
 ##### Client receives:
 
-Key         | Type  | Value
------------ | ----- | -----
-`type`      | int   | `5`
-`time`      | float | `1453338500.966`
-`channel`   | str   | `'tornado'`
-`user`      | str   | `'gone_user'`
+Key         | Type  | Value            | Notes
+----------- | ----- | ---------------- | -----
+`type`      | int   | `5`              |
+`time`      | float | `1453338500.966` |
+`channel`   | str   | `'tornado'`      |
+`user`      | str   | `'gone_user'`    |
+`history`   | bool  | `true`           | (optional) Flags the message as channel's history log
 
-Just like `join`, the sharp symbols are also stripped.
+Behaves exactly like `join`.
 
 #### Send a message
 
@@ -100,13 +102,14 @@ Key         | Type | Value           | Notes
 
 ##### Client receives:
 
-Key         | Type  | Value
------------ | ----- | -----
-`type`      | int   | `0`
-`time`      | float | `1453338500.966`
-`dest`      | str   | `'tornado'`
-`message`   | str   | `'hello world`
-`user`      | str   | `'sender'`
+Key         | Type  | Value            | Notes
+----------- | ----- | ---------------- | -----
+`type`      | int   | `0`              |
+`time`      | float | `1453338500.966` |
+`dest`      | str   | `'tornado'`      |
+`message`   | str   | `'hello world`   |
+`user`      | str   | `'sender'`       |
+`history`   | bool  | `true`           | (optional) Flags the message as channel's history log
 
 The server broadcasts the response message to everybody who have joined the channel the message was sent to; the server also adds a `user` parameter which contains the nickname of the sender.
 
@@ -117,7 +120,7 @@ The server broadcasts the response message to everybody who have joined the chan
 Key         | Type | Value        | Notes
 ----------- | ---- | ------------ | -----
 `type`      | int  | `6`          |
-`channel`   | str  | `'#tornado'` | This parameter is optional.
+`channel`   | str  | `'#tornado'` | (optional)
 
 ##### Client receives:
 
@@ -125,7 +128,7 @@ Key         | Type | Value                | Notes
 ----------- | ---- | -------------------- | -----
 `type`      | int  | `6`                  |
 `users`     | arr  | `['user1', 'user2']` |
-`channel`   | str  | `'tornado'`          | This parameter is optional and is to be sent only if it existed in the request.
+`channel`   | str  | `'tornado'`          | (optional) and is to be sent only if it existed in the request.
 
 If sent without a `channel` parameter, it returns all the users that are connected to the server.
 Otherwise, it returns just the users that have joined the given channel.

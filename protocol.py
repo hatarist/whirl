@@ -48,12 +48,14 @@ def validate_message(message):
 class ChatServerMixin(object):
     USERS = []
     CHANNELS = defaultdict(list)
+    HISTORY = defaultdict(list)
+    HISTORY_SIZE = 25
 
-    def write_message(self, *args, **kwargs):
-        """Extends the default write_message function to prevent hanging while trying to
-send a message to a disconnected user."""
+    def write_message(self, message, **kwargs):
+        """Extends the default write_message function to encode the message to JSON and
+to prevent hanging while trying to send a message to a disconnected user."""
         try:
-            return super(ChatServerMixin, self).write_message(*args, **kwargs)
+            return super(ChatServerMixin, self).write_message(json_encode(message), **kwargs)
         except WebSocketClosedError:
             pass
 
@@ -70,7 +72,7 @@ It's ought to be sent to the client right after that."""
             result.update({'user': self.nickname})
 
         result.update(kwargs)
-        return json_encode(result)
+        return result
 
     def _broadcast_message(self, payload, filter_users=None):
         """Sends a websocket message to all connected clients (also filters the users if given)."""
@@ -85,8 +87,15 @@ It's ought to be sent to the client right after that."""
             filter_users=lambda user: user.nickname in self.CHANNELS[channel]
         )
 
-    def user_in_channels(self):
-        return [channel for channel, users in self.CHANNELS.items() if self.nickname in users]
+    def update_history(self, channel, payload):
+        payload['history'] = True  # add a `history` param to distinct responses @ client's side
+        self.HISTORY[channel].append(payload)
+        if len(self.HISTORY[channel]) > self.HISTORY_SIZE:
+            self.HISTORY[channel] = self.HISTORY[channel][-self.HISTORY_SIZE:]
+
+    def send_history(self, channel):
+        for payload in self.HISTORY[channel]:
+            self.write_message(payload)
 
     # API command methods
     def send_error(self, message, **kwargs):
@@ -110,10 +119,8 @@ It's ought to be sent to the client right after that."""
             filter_users=lambda user: user != self  # exclude the user him/herself
         )
 
-        channels = self.user_in_channels()
-
         # Remove the user from all the channels & notify the users
-        for channel in channels:
+        for channel in [chan for chan, users in self.CHANNELS.items() if self.nickname in users]:
             self.user_leave(channel)
             self.user_list(channel=channel, broadcast=True)
 
@@ -131,28 +138,26 @@ It's ought to be sent to the client right after that."""
 
         self.CHANNELS[channel].append(self.nickname)
 
-        self._channel_message(
-            channel,
-            self._generate_payload(P_TYPE.JOIN, channel=channel),
-        )
+        self.send_history(channel)
+
+        payload = self._generate_payload(P_TYPE.JOIN, channel=channel)
+        self._channel_message(channel, payload)
+        self.update_history(channel, payload)
 
     def user_leave(self, channel):
         if self.nickname not in self.CHANNELS[channel]:
             self.send_error("You aren't present on that channel!")
             return
 
-        self._channel_message(
-            channel,
-            self._generate_payload(P_TYPE.LEAVE, channel=channel),
-        )
-
+        payload = self._generate_payload(P_TYPE.LEAVE, channel=channel)
+        self._channel_message(channel, payload)
         self.CHANNELS[channel].remove(self.nickname)
+        self.update_history(channel, payload)
 
     def send_message(self, channel, message):
-        self._channel_message(
-            channel,
-            self._generate_payload(P_TYPE.MESSAGE, dest=channel, message=message),
-        )
+        payload = self._generate_payload(P_TYPE.MESSAGE, dest=channel, message=message)
+        self._channel_message(channel, payload)
+        self.update_history(channel, payload)
 
     def user_list(self, channel=None, broadcast=False):
         """Sends a list of connected users.

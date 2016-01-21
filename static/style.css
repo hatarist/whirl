@@ -33,6 +33,7 @@ span.error {
 
 li.col-header {
   list-style: none;
+  padding-bottom: 5px;
 }
 
 .messages {
@@ -46,12 +47,19 @@ li.col-header {
   margin: 8px;
 }
 
+.messages .row.history {
+  opacity: 0.5;
+}
+
 #input {
   width: 100%;
   margin-top: 8px;
 }
 
-#users li {
-  display: list-item;
-  list-style: initial;
+#channels li > a, .users li > a {
+  padding: 5px 10px;
+}
+
+.users li > a {
+  color: #000;
 }
