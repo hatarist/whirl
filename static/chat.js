@@ -28,14 +28,20 @@ function render_error(message) {
     return $("<span>").addClass("error").text(message);
 }
 
-function update_user_list(users) {
-    $("#all_users").empty();
+function update_user_list(users, channel) {
+    if (channel) {
+        $user_list = $('#chats .chat#' + channel + ' .users');
+    } else {
+        $user_list = $("#all_users");
+    }
+
+    $user_list.empty();
     var $users = $("<ul>").addClass("nav nav-list");
     $users.append($("<li>").addClass("col-header").text("Users"));
     for(var idx in users) {
         $users.append($("<li>").append(users[idx]));
     };
-    $("#all_users").append($users);
+    $user_list.append($users);
 }
 
 var P_TYPE = {
@@ -49,12 +55,32 @@ var P_TYPE = {
     ERROR: -1,
 }
 
+function handle_response(jsondata) {
+    switch (jsondata['type']) {
+        case P_TYPE.JOIN:
+            if (jsondata['user'] === window.nick) create_channel_tab(jsondata['channel']);
+            break;
+        case P_TYPE.LEAVE:
+            if (jsondata['user'] === window.nick) destroy_channel_tab(jsondata['channel']);
+            break;
+        case P_TYPE.LIST:
+            update_user_list(jsondata['users'], jsondata['channel']);
+            return;  // don't print anything
+        case P_TYPE.ERROR: {
+            print_error(jsondata['message']);
+            return;  // don't print anything
+        }
+    }
+
+    print_response(jsondata);
+}
+
 function print_response(jsondata) {
     var element, $target;
 
     switch (jsondata['type']) {
         case P_TYPE.MESSAGE:
-            $target = $('#chat .messages#' + jsondata['dest']);
+            $target = $('#chats .chat#' + jsondata['dest'] + ' .messages');
             element = render_message(jsondata['user'], jsondata['message']);
             break;
         case P_TYPE.LOGIN:
@@ -66,11 +92,11 @@ function print_response(jsondata) {
             element = render_logout(jsondata['user']);
             break;
         case P_TYPE.JOIN:
-            $target = $('#chat .messages#' + jsondata['channel']);
+            $target = $('#chats .chat#' + jsondata['channel'] + ' .messages');
             element = render_join(jsondata['user'], jsondata['channel']);
             break;
         case P_TYPE.LEAVE:
-            $target = $('#chat .messages#' + jsondata['channel']);
+            $target = $('#chats .chat#' + jsondata['channel'] + ' .messages');
             element = render_leave(jsondata['user'], jsondata['channel']);
             break;
         case P_TYPE.LIST:
@@ -84,34 +110,48 @@ function print_response(jsondata) {
     }
 
     $target.append($("<div>").addClass("row").append(render_date()).append(element));
-}
-
-function create_channel_tab(channel, focus) {
-    $tabbar = $('#channels ul');
-    $tabpane = $('#chat');
-
-    $tabbar.append('<li role="presentation"><a href="#' + channel + '" aria-controls="' +
-                   channel + '" role="tab" data-toggle="tab">#' + channel + '</a></li>');
-
-    $tabpane.append('<div class="messages channel tab-pane" id="' + channel + '"></div>');
-
-    if (focus === true) {
-        $tabbar.find('a[aria-controls=' + channel + ']').click();
-    }
-}
-
-function destroy_channel_tab(channel) {
-    $('#channels li a[aria-controls=' + channel + ']').parent().remove();
-    $('#chat .messages#' + channel).remove();
+    $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
 }
 
 function print_error(message) {
     element = render_error(message);
 
     active_pane = $('.navbar-nav .active a').attr('href');
-    $target = active_pane == '#chat' ? $('.messages.channel.active') : $('#console_log');
+
+    if (active_pane == '#chat' && $('.chat.active').length > 0) {
+        $target = $('.chat.active .messages');
+    } else {
+        $target = $('#console_log');
+    }
 
     $target.append($("<div>").addClass("row").append(render_date()).append(element));
+    $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
+}
+
+function create_channel_tab(channel, focus) {
+    $tabbar = $('#channels ul');
+    $tabcontainer = $('#chats');
+
+    $tabbar.append('<li role="presentation"><a href="#' + channel + '" aria-controls="' +
+                   channel + '" role="tab" data-toggle="tab">#' + channel + '</a></li>');
+
+    $tabcontainer.append('<div class="row tab-pane chat" id="' + channel + '">' +
+                         '  <div class="col-md-9 messages"></div>' +
+                         '  <div class="col-md-3 users"></div>' +
+                         '</div>');
+
+    // focus on the created tab
+    $tabbar.find('a[aria-controls=' + channel + ']').click();
+}
+
+function destroy_channel_tab(channel) {
+    $('#channels li a[aria-controls=' + channel + ']').parent().remove();
+    $('#chats .tab-pane#' + channel).remove();
+}
+
+function get_current_channel() {
+    active_pane = $('.navbar-nav .active a').attr('href');
+    return active_pane == '#chat' ? $('#channels .active a').attr('aria-controls') : null;
 }
 
 function send_message(message) {
@@ -125,23 +165,28 @@ function send_message(message) {
 
         var split = message.split(" ");
         if(split.length != 2) return;
-        var nick = split[1];
+
+        window.nick = split[1];
 
         // Create a WS connection
-        ws = new WebSocket("ws://" + location.host + "/chat/login/" + nick);
+        ws = new WebSocket("ws://" + location.host + "/chat/login/" + window.nick);
 
         ws.onopen = function() {
             $('#console_log .row:first').remove();  // Hides the helping row
+            $('.navbar-nav').find('a[aria-controls=chat-content]').click();
         };
 
         ws.onmessage = function(event) { 
             var jsondata = jQuery.parseJSON(event.data);
-            print_response(jsondata);
+            handle_response(jsondata);
             event.preventDefault();
         }
 
         ws.onclose = function() {};
 
+        return;
+    } else if (message.search("/logout") == 0) {
+        ws.send(generate_payload_logout());
         return;
     } else if (message.search("/join") == 0) {
         var split = message.split(" ");
@@ -152,8 +197,9 @@ function send_message(message) {
         return;
     } else if (message.search("/leave") == 0) {
         var split = message.split(" ");
-        if(split.length != 2) return;
-        var channel = split[1];
+        if(split.length > 2) return;
+        if(split.length == 2) channel = split[1];
+        if(split.length == 1) channel = get_current_channel();
 
         ws.send(generate_payload_leave(channel));
         return;
@@ -167,9 +213,7 @@ function send_message(message) {
         return;
     }
 
-    var active_pane = $('.navbar-nav .active a').attr('href');
-    var active_channel = active_pane == '#chat' ? $('#channels .active a').attr('aria-controls') : null;
-    return ws.send(generate_payload_message(active_channel, message));
+    return ws.send(generate_payload_message(get_current_channel(), message));
 }
 
 function generate_payload_message(dest, message) {
@@ -189,6 +233,12 @@ function generate_payload_list() {
 function generate_payload_login(name) {
     return JSON.stringify({
         'type': P_TYPE.LOGIN, 'user': name
+    });
+}
+
+function generate_payload_logout() {
+    return JSON.stringify({
+        'type': P_TYPE.LOGOUT
     });
 }
 

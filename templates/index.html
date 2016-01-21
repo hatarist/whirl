@@ -49,30 +49,41 @@
       <div class="row" id="chat-content" style="display:none;">
         <div class="col-md-2" id="channels">
           <ul class="nav nav-pills nav-stacked">
+            <li class="col-header">Channels</li>
+            {#
             {% for channel in channels %}
             <li role="presentation">
               <a href="#{{ channel }}" aria-controls="{{ channel }}" role="tab" data-toggle="tab">#{{ channel }}</a>
             </li>
             {% end %}
+            #}
           </ul>
         </div>
-        <div class="tab-content col-md-8" id="chat">
+        <div class="tab-content col-md-10" id="chats">
+          {#
           {% for channel in channels %}
-            <div class="messages channel tab-pane" id="{{ channel }}"></div>
+            <div class="row tab-pane chat" id="{{ channel }}">
+              <div class="col-md-9 messages"></div>
+              <div class="col-md-3 users"></div>
+            </div>
           {% end %}
+          #}
         </div>
-        <div class="col-md-2" id="users"></div>
       </div>
 
       <div class="row" id="chat-box">
         <div class="col-md-2"></div>
-        <div class="col-md-8">
-          <form action="#" method="post" name="chat">
-            <input type="text" name="input" autocomplete="off" id="input" />
-            {% module xsrf_form_html() %}
-          </form>
+        <div class="col-md-10">
+          <div class="row">
+            <div class="col-md-9">
+              <form action="#" method="post" name="chat">
+                <input type="text" name="input" autocomplete="off" id="input" />
+                {% module xsrf_form_html() %}
+              </form>
+            </div>
+            <div class="col-md-3"></div>
+          </div>
         </div>
-        <div class="col-md-2"></div>
       </div>
     </div>
   </body>
