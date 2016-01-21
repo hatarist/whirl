@@ -4,8 +4,7 @@ The whole interaction with the server uses WebSockets.
 
 ## Connection
 
-To connect to the chat server, the client has to create a WebSocket connection to the `/chat/login/%NICK%` URL, where `%NICK` is a desired nickname.
-The nickname has to contain 2 to 20 characters (only letters, numbers and underscores).
+To connect to the chat server, the client has to create a WebSocket connection to the `/ws/` while being authenticated using the `/login/` form & `session` cookies.
 
 ## Data transfer
 
@@ -16,8 +15,8 @@ Every response also has a `time` parameter, which is floating point number and c
 
  - `0` - channel message
  - `1` - user registration _(not implemented yet)_
- - `2` - user log in
- - `3` - user log out
+ - `2` - user log in (WebSocket connection opened)
+ - `3` - user log out (WebSocket connection closed)
  - `4` - user joining channel
  - `5` - user leaving channel
  - `6` - list server/channel users
@@ -27,20 +26,29 @@ Every response also has a `time` parameter, which is floating point number and c
 
 #### Log in
 
+##### Client receives:
+
 Key         | Type | Value        | Notes
 ----------- | ---- | ------------ | -----
 `type`      | int  | `2`          |
 `user`      | str  | `'nickname'` | 2-20 character limit
 
-Client doesn't have to send this command after connecting to the WebSocket via /chat/login/<nickname> URL.
-
 The server broadcasts this command to everyone after the client is connected.
 
 #### Log out
 
+##### Client sends:
+
 Key         | Type | Value
------------ | ---- | -----
+----------- | ---- | ------------
 `type`      | int  | `3`
+
+##### Client receives:
+
+Key         | Type | Value        | Notes
+----------- | ---- | ------------ | -----
+`type`      | int  | `3`          |
+`user`      | str  | `'nickname'` | 2-20 character limit
 
 No additional parameters required. 
 
