@@ -13,3 +13,4 @@ venv/
 
 # Project files
 server.conf
+whirl.db

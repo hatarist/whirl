@@ -3,8 +3,12 @@ html, body {
   overflow: hidden;
 }
 
-.container, #console-content, #chat-content {
-  height: calc(100% - 60px);
+.container {
+  height: 100%;
+}
+
+#chat-content {
+  height: calc(100% - 120px);
 }
 
 #console, #chats, #chats .tab-pane {
@@ -38,7 +42,7 @@ li.col-header {
 
 .messages {
   overflow: auto;
-  background: #eee;
+  background: #fbfbfb;
   border-radius: 6px;
   height: 100%;
 }
@@ -49,6 +53,10 @@ li.col-header {
 
 .messages .row.history {
   opacity: 0.5;
+}
+
+.messages .row.help {
+  color: #060;
 }
 
 #input {

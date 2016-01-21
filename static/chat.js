@@ -1,5 +1,9 @@
 function render_date(unixtime) {
-    date = new Date(unixtime * 1000);
+    if (typeof unixtime === 'undefined') {
+        date = new Date();
+    } else {
+        date = new Date(unixtime * 1000);
+    }
     formattedDate = '[' + ("0" + date.getHours()).slice(-2) + ":" + ("0" + date.getMinutes()).slice(-2) + '] ';
     return $("<span>").addClass("timestamp").text(formattedDate);
 }
@@ -73,7 +77,7 @@ function handle_response(jsondata) {
             update_user_list(jsondata['users'], jsondata['channel']);
             return;  // don't print anything
         case P_TYPE.ERROR: {
-            print_error(jsondata['message']);
+            print_error(jsondata['message'], jsondata['time']);
             return;  // don't print anything
         }
     }
@@ -90,11 +94,11 @@ function print_response(jsondata, is_history) {
             element = render_message(jsondata['user'], jsondata['message']);
             break;
         case P_TYPE.LOGIN:
-            $target = $('#console_log');
+            $target = $('#chats .console .messages');
             element = render_login(jsondata['user']);
             break;
         case P_TYPE.LOGOUT:
-            $target = $('#console_log');
+            $target = $('#chats .console .messages');
             element = render_logout(jsondata['user']);
             break;
         case P_TYPE.JOIN:
@@ -109,7 +113,7 @@ function print_response(jsondata, is_history) {
             update_user_list(jsondata['users']);
             return;
         case P_TYPE.ERROR: {
-            $target = $('#console_log');
+            $target = $('#chats .console .messages');
             element = render_error(jsondata['message'])
             break;
         }
@@ -120,19 +124,18 @@ function print_response(jsondata, is_history) {
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
 }
 
-function print_error(message) {
+function print_error(message, time) {
     element = render_error(message);
+    $target = $('.chat.active .messages');
 
-    active_pane = $('.navbar-nav .active a').attr('href');
-
-    if (active_pane == '#chat' && $('.chat.active').length > 0) {
-        $target = $('.chat.active .messages');
-    } else {
-        $target = $('#console_log');
-    }
-
-    $target.append($('<div class="row">').append(render_date(jsondata['time'])).append(element));
+    $target.append($('<div class="row">').append(render_date(time).append(element)));
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
+}
+
+function channel_tab_bind() {
+    $('#channels ul li a').click(function() {
+        $('#input').focus();
+    });
 }
 
 function channel_tab_exists(channel) {
@@ -155,6 +158,8 @@ function create_channel_tab(channel, focus) {
                          '  <div class="col-md-3 users"></div>' +
                          '</div>');
 
+    // bind focusing on a tab click
+    channel_tab_bind();
     // focus on the created tab
     $tabbar.find('a[aria-controls=' + channel + ']').click();
 }
@@ -165,8 +170,9 @@ function destroy_channel_tab(channel) {
 }
 
 function get_current_channel() {
-    active_pane = $('.navbar-nav .active a').attr('href');
-    return active_pane == '#chat' ? $('#channels .active a').attr('aria-controls') : null;
+    var current_channel = $('#channels .active a').attr('aria-controls');
+    if (current_channel == 'server') return null;
+    return current_channel;
 }
 
 function send_message(message) {
@@ -184,11 +190,12 @@ function send_message(message) {
         window.nick = split[1];
 
         // Create a WS connection
-        ws = new WebSocket("ws://" + location.host + "/chat/login/" + window.nick);
+        ws = new WebSocket("ws://" + location.host + "/ws/login/" + window.nick);
 
         ws.onopen = function() {
-            $('#console_log .row:first').remove();  // Hides the helping row
-            $('.navbar-nav').find('a[aria-controls=chat-content]').click();
+            if ($('#chats .console .messages .row.help:first').length > 0) {
+                $('#chats .console .messages .row.help:first').remove();  // Hides the helping row
+            }
         };
 
         ws.onmessage = function(event) { 
@@ -208,7 +215,11 @@ function send_message(message) {
         if(split.length != 2) return;
         var channel = split[1];
 
-        ws.send(generate_payload_join(channel));
+        if ($('#chats .console .messages .row.help:first').length > 0) {
+            $('#chats .console .messages .row.help:first').remove();  // Hides the helping row
+        }
+
+        if (channel) ws.send(generate_payload_join(channel));
         return;
     } else if (message.search("/leave") == 0) {
         var split = message.split(" ");
@@ -216,7 +227,7 @@ function send_message(message) {
         if(split.length == 2) channel = split[1];
         if(split.length == 1) channel = get_current_channel();
 
-        ws.send(generate_payload_leave(channel));
+        if (channel) ws.send(generate_payload_leave(channel));
         return;
     } else if (message.search("/list") == 0) {
         ws.send(generate_payload_list());
@@ -228,7 +239,8 @@ function send_message(message) {
         return;
     }
 
-    return ws.send(generate_payload_message(get_current_channel(), message));
+    channel = get_current_channel();
+    if (channel) return ws.send(generate_payload_message(channel, message));
 }
 
 function generate_payload_message(dest, message) {
@@ -270,6 +282,8 @@ function generate_payload_leave(channel) {
 }
 
 $(function() {
+    $('#channels').find('a[aria-controls=server]').click();
+
     $('form[name=chat]').submit(function(e) {
         send_message($('#input').val());
         $('#input').val('');
@@ -283,17 +297,5 @@ $(function() {
       }
     });
 
-    $('.nav a').click(function() {
-        $('#input').focus();
-    });
-
-    $("#console-menu").click(function(e) {
-        $("#console-content").show();
-        $("#chat-content").hide();
-    });
-
-    $("#chat-menu").click(function(e) {
-        $("#console-content").hide();
-        $("#chat-content").show();
-    });
+    channel_tab_bind();
 });

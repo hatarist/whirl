@@ -32,6 +32,9 @@ def validate_username(username):
 
 
 def validate_channel(channel):
+    if channel == 'server':
+        raise ValidationError("This channel name is reserved for the system purposes.")
+
     if not re.match(r'\w{2,16}$', channel):
         raise ValidationError(
             'Channel should contain 2-16 characters (only letters, numbers and underscores).'

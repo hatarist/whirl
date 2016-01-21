@@ -20,6 +20,10 @@ Create a configuration file from the sample:
 
     cp server.conf.example server.conf
 
+Create a database and its tables:
+
+    python models.py
+
 Run & enjoy:
 
     python whirl.py

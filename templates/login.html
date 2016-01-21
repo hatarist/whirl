@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-4 center-block">
+      {% try %}
+        {% if not success %}
+          <div class="alert alert-danger" role="alert">{{ message }}</div>
+          {% include 'partials/login_form.html' %}
+        {% end %}
+      {% except %}
+        {% include 'partials/login_form.html' %}
+      {% end %}
+    </div>
+    <div class="col-md-4"></div>
+  </div>
+{% end %}
