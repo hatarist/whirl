@@ -66,7 +66,7 @@ var P_TYPE = {
 
 function handle_response(jsondata) {
     if (jsondata['history'] === true) {
-        create_channel_tab(jsondata['channel'] || jsondata['dest']);
+        create_channel_tab(jsondata['channel'] || jsondata['channel']);
         print_response(jsondata, true);
         return;
     }
@@ -98,11 +98,11 @@ function print_response(jsondata, is_history) {
 
     switch (jsondata['type']) {
         case P_TYPE.MESSAGE:
-            $target = $('#chats .chat#' + jsondata['dest'] + ' .messages');
+            $target = $('#chats .chat#' + jsondata['channel'] + ' .messages');
             element = render_message(jsondata['user'], jsondata['message']);
             break;
         case P_TYPE.ACTION:
-            $target = $('#chats .chat#' + jsondata['dest'] + ' .messages');
+            $target = $('#chats .chat#' + jsondata['channel'] + ' .messages');
             element = render_action(jsondata['user'], jsondata['message']);
             break;
         case P_TYPE.LOGIN:
@@ -290,18 +290,18 @@ function send_message(message) {
     }
 }
 
-function generate_payload_message(dest, message) {
+function generate_payload_message(channel, message) {
     return JSON.stringify({
         'type': P_TYPE.MESSAGE,
-        'dest': dest,
+        'channel': channel,
         'message': message
     });
 }
 
-function generate_payload_action(dest, message) {
+function generate_payload_action(channel, message) {
     return JSON.stringify({
         'type': P_TYPE.ACTION,
-        'dest': dest,
+        'channel': channel,
         'message': message
     });
 }

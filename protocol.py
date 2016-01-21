@@ -6,6 +6,9 @@ from enum import IntEnum
 
 from tornado.escape import json_encode
 from tornado.websocket import WebSocketClosedError
+from sqlalchemy.exc import IntegrityError
+
+from models import Message
 
 
 class P_TYPE(IntEnum):
@@ -52,8 +55,6 @@ def validate_message(message):
 class ChatServerMixin(object):
     USERS = []
     CHANNELS = defaultdict(list)
-    HISTORY = defaultdict(list)
-    HISTORY_SIZE = 25
 
     def write_message(self, message, **kwargs):
         """Extends the default write_message function to encode the message to JSON and
@@ -92,14 +93,33 @@ It's ought to be sent to the client right after that."""
         )
 
     def update_history(self, channel, payload):
-        payload['history'] = True  # add a `history` param to distinct responses @ client's side
-        self.HISTORY[channel].append(payload)
-        if len(self.HISTORY[channel]) > self.HISTORY_SIZE:
-            self.HISTORY[channel] = self.HISTORY[channel][-self.HISTORY_SIZE:]
+        user = self.get_current_user()
+        message = Message(
+            user_id=user.id,
+            p_type=int(payload['type']),
+            channel=channel,
+            message=payload.get('message')
+        )
+
+        try:
+            self.application.db.add(message)
+            self.application.db.commit()
+        except IntegrityError:
+            self.application.db.rollback()
 
     def send_history(self, channel):
-        for payload in self.HISTORY[channel]:
-            self.write_message(payload)
+        for message in (self.application.db.query(Message)
+                        .filter_by(channel=channel)
+                        .order_by(Message.date_created)
+                        .limit(50)):
+            self.write_message({
+                'time': message.date_created.timestamp(),
+                'type': message.p_type,
+                'channel': channel,
+                'user': message.user.username,
+                'message': message.message or None,
+                'history': True
+            })
 
     # API command methods
     def send_error(self, message, **kwargs):
@@ -175,7 +195,7 @@ It's ought to be sent to the client right after that."""
         if msg_type is None:
             msg_type = P_TYPE.MESSAGE
 
-        payload = self._generate_payload(msg_type, dest=channel, message=message)
+        payload = self._generate_payload(msg_type, channel=channel, message=message)
         self._channel_message(channel, payload)
         self.update_history(channel, payload)
 
@@ -210,7 +230,7 @@ If `broadcast` is set, also sends a list of users to everybody in that channel."
         # Common parameter: `channel`
         if payload['type'] in (P_TYPE.JOIN, P_TYPE.LEAVE, P_TYPE.MESSAGE,
                                P_TYPE.ACTION, P_TYPE.LIST):
-            channel = payload.get('channel', payload.get('dest')).lstrip('#')
+            channel = payload['channel'].lstrip('#')
 
             try:
                 validate_channel(channel)

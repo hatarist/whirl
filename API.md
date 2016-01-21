@@ -15,8 +15,8 @@ Every response also has a `time` parameter, which is floating point number and c
 
  - `0` - channel message
  - `1` - user registration _(not implemented yet)_
- - `2` - user log in (WebSocket connection opened)
- - `3` - user log out (WebSocket connection closed)
+ - `2` - user log in
+ - `3` - user log out
  - `4` - user joining channel
  - `5` - user leaving channel
  - `6` - list server/channel users
@@ -106,7 +106,7 @@ Behaves exactly like `join`.
 Key         | Type | Value           | Notes
 ----------- | ---- | --------------- | -----
 `type`      | int  | `0`             |
-`dest`      | str  | `'#tornado'`    |
+`channel`   | str  | `'#tornado'`    |
 `message`   | str  | `'hello world'` | 1-2048 character limit
 
 ##### Client receives:
@@ -115,7 +115,7 @@ Key         | Type  | Value            | Notes
 ----------- | ----- | ---------------- | -----
 `type`      | int   | `0`              |
 `time`      | float | `1453338500.966` |
-`dest`      | str   | `'tornado'`      |
+`channel`   | str   | `'tornado'`      |
 `message`   | str   | `'hello world'`  |
 `user`      | str   | `'sender'`       |
 `history`   | bool  | `true`           | (optional) Flags the message as channel's history log
@@ -129,7 +129,7 @@ The server broadcasts the response message to everybody who have joined the chan
 Key         | Type | Value           | Notes
 ----------- | ---- | --------------- | -----
 `type`      | int  | `7`             |
-`dest`      | str  | `'#tornado'`    |
+`channel`   | str  | `'#tornado'`    |
 `message`   | str  | `'ate a berry'` | 1-2048 character limit
 
 ##### Client receives:
@@ -138,7 +138,7 @@ Key         | Type  | Value            | Notes
 ----------- | ----- | ---------------- | -----
 `type`      | int   | `7`              |
 `time`      | float | `1453338500.966` |
-`dest`      | str   | `'tornado'`      |
+`channel`   | str   | `'tornado'`      |
 `message`   | str   | `'ate a berry'`  | Action taken on behalf of the user.
 `user`      | str   | `'berry_eater'`  |
 `history`   | bool  | `true`           | (optional) Flags the message as channel's history log
