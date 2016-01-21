@@ -36,6 +36,12 @@ class AuthHandler(tornado.web.RequestHandler):
 
         return self.application.db.query(User).get(int(user_id))
 
+    def login(self, username, password):
+        password_hash = hashlib.sha256((password + options.hash_salt).encode('utf-8')).hexdigest()
+        return (self.application.db.query(User)
+                .filter_by(username=username, password=password_hash)
+                .one_or_none())
+
 
 class IndexHandler(AuthHandler):
     name = 'index'
@@ -62,13 +68,7 @@ class LoginHandler(AuthHandler):
         self.render("login.html")
 
     def post(self):
-        username = self.get_argument('username')
-        password = self.get_argument('password')
-
-        password_hash = hashlib.sha256((password + options.hash_salt).encode('utf-8')).hexdigest()
-        user = (self.application.db.query(User)
-                .filter_by(username=username, password=password_hash)
-                .one_or_none())
+        user = self.login(self.get_argument('username'), self.get_argument('password'))
 
         if user:
             self.set_secure_cookie('session', str(user.id))
@@ -119,17 +119,30 @@ class RegisterHandler(AuthHandler):
 
 
 class ChatSocketHandler(ChatServerMixin, AuthHandler, tornado.websocket.WebSocketHandler):
+    """Possible authentication methods:
+/ws/?auth=cookie (default) - automatically logs the user in if the cookie is valid.
+/ws/?auth=plain - waits for the user to enter a `/login <user> <password>` command."""
+
     def open(self):
-        if self.get_current_user():
-            self.USERS.append(self)
-            self.logged_in = True
-            self.nickname = ''
-            self.user_login(self.get_current_user().username)
+        auth = self.get_argument('auth', 'cookie')
+
+        self.USERS.append(self)
+        self.logged_in = False
+        self.nickname = ''
+
+        if auth == 'cookie':
+            if self.get_current_user():
+                self.logged_in = True
+                self.nickname = self.get_current_user().username
+                self.user_login(self.nickname)
 
     def on_message(self, message):
         """Sends a personal/broadcast message based on the command requested."""
+        msg_payload = json_decode(message)
+
+        # [TODO] check for a non-cookie-authenticated user and allow him/her to LOGIN
         if self.get_current_user():
-            self.handle_command(json_decode(message))
+            self.handle_command(msg_payload)
         else:
             self.send_error("Session is invalid.")
 

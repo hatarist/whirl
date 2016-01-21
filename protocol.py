@@ -105,17 +105,29 @@ It's ought to be sent to the client right after that."""
     def send_error(self, message, **kwargs):
         self.write_message(self._generate_payload(P_TYPE.ERROR, message=message, **kwargs))
 
-    def user_login(self, nick):
+    def user_login(self, username, password=None):
         try:
-            validate_username(nick)
+            validate_username(username)
         except ValidationError as e:
             self.send_error(str(e))
             return
 
-        self.nickname = nick
-        self.logged_in = True
-        self._broadcast_message(self._generate_payload(P_TYPE.LOGIN))
-        self.user_list()
+        if password is None:
+            user = self.get_current_user()
+        else:
+            user = self.login(username, password)
+
+        if user:
+            self.nickname = username
+            self.logged_in = True
+            self.write_message(self._generate_payload(P_TYPE.LOGIN, auth=True))
+            self._broadcast_message(
+                self._generate_payload(P_TYPE.LOGIN),
+                filter_users=lambda user: user != self  # exclude the user him/herself
+            )
+            self.user_list()
+        else:
+            self.send_error("Wrong username or password.")
 
     def user_logout(self):
         self._broadcast_message(
@@ -129,6 +141,7 @@ It's ought to be sent to the client right after that."""
             self.user_list(channel=channel, broadcast=True)
 
         try:
+            self.logged_in = False
             self.USERS.remove(self)
         except ValueError:
             pass
@@ -220,7 +233,8 @@ If `broadcast` is set, also sends a list of users to everybody in that channel."
         # Actual command handling
         if payload['type'] == P_TYPE.LOGIN:
             nickname = payload['user']
-            self.user_login(nickname)
+            password = payload.get('password')
+            self.user_login(nickname, password=password)
         elif payload['type'] == P_TYPE.LOGOUT:
             self.user_logout()
             self.close()

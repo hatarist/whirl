@@ -72,6 +72,9 @@ function handle_response(jsondata) {
     }
 
     switch (jsondata['type']) {
+        case P_TYPE.LOGIN:
+            if (jsondata['auth'] === true) $username = jsondata['user'];
+            break;
         case P_TYPE.JOIN:
             if (jsondata['user'] === $username) create_channel_tab(jsondata['channel']);
             break;
@@ -135,7 +138,7 @@ function print_response(jsondata, is_history) {
 
 function print_error(message, time) {
     element = render_error(message);
-    $target = $('.chat.active .messages');
+    $target = $('#chats .active .messages');
 
     $target.append($('<div class="row">').append(render_date(time).append(element)));
     $target.scrollTop($target.prop("scrollHeight"));  // scroll to the bottom
@@ -184,12 +187,28 @@ function get_current_channel() {
     return current_channel;
 }
 
-function ws_connect() {
+function ws_connect(method, username, password) {
+    /*
+        If `method` is `'plain'`, the client has to pass `username` and `password` to authenticate
+        directly via the WebSocket's LOGIN command.
+
+        Otherwise the client will connect to the WebSocket with a cookie authentification
+        (with no need to provide username & password).
+    */
+
     // Create a WS connection
+    if (method === 'plain') {
+        $ws = new WebSocket("ws://" + location.host + "/ws/?auth=plain");
+    } else {
+        $ws = new WebSocket("ws://" + location.host + "/ws/");
+    }
 
-    $ws = new WebSocket("ws://" + location.host + "/ws/");
-
-    $ws.onopen = function() {};
+    $ws.onopen = function() {
+        if (method === 'plain' && username && password) {
+            $username = username;
+            $ws.send(generate_payload_login(username, password));
+        }
+    };
 
     $ws.onmessage = function(event) { 
         var jsondata = jQuery.parseJSON(event.data);
@@ -203,8 +222,41 @@ function ws_connect() {
 function send_message(message) {
     channel = get_current_channel();
 
-    if (typeof $ws === 'undefined') {
-        print_error("Can't send a message without a connection.");
+    if (message.search("/login") == 0) {
+        if (typeof $ws !== 'undefined' && $ws.readyState !== $ws.CLOSED) {
+            // WS is already opened, no way we're allowing to create an another one!
+            print_error("You're already logged in.");
+            return;
+        }
+
+        var split = message.split(" ");
+
+        if (typeof $ws === 'undefined' || $ws.readyState === $ws.CLOSED || $ws.readyState === $ws.CLOSING) {
+            if (split.length == 1) {
+                // cookie auth
+                ws_connect();
+                return;
+            } else if (split.length == 3) {
+                // plain auth
+                username = split[1];
+                password = split[2];
+                ws_connect('plain', username, password);
+                return;
+            }
+        }
+
+    } else if (message.search("/logout") == 0) {
+        if (typeof $ws === 'undefined' || $ws.readyState !== $ws.OPEN) {
+            print_error("You're not logged in.");
+            return;
+        }
+        $ws.send(generate_payload_logout());
+        print_error("You have logged out.");
+        return;
+    }
+
+    if (typeof $ws === 'undefined' || $ws.readyState !== $ws.OPEN) {
+        print_error("Can't send a message without an established connection.");
         return;
     }
 
@@ -233,9 +285,9 @@ function send_message(message) {
     } else if (message.search("/me") == 0) {
         $ws.send(generate_payload_action(channel, message.substring(4)));
         return;
+    } else if (message.search("/") !== 0 && channel) {
+        return $ws.send(generate_payload_message(channel, message));
     }
-
-    if (channel) return $ws.send(generate_payload_message(channel, message));
 }
 
 function generate_payload_message(dest, message) {
@@ -260,9 +312,11 @@ function generate_payload_list() {
     });
 }
 
-function generate_payload_login(name) {
+function generate_payload_login(username, password) {
     return JSON.stringify({
-        'type': P_TYPE.LOGIN, 'user': name
+        'type': P_TYPE.LOGIN,
+        'user': username,
+        'password': password
     });
 }
 
@@ -274,13 +328,15 @@ function generate_payload_logout() {
 
 function generate_payload_join(channel) {
     return JSON.stringify({
-        'type': P_TYPE.JOIN, 'channel': channel
+        'type': P_TYPE.JOIN,
+        'channel': channel
     });
 }
 
 function generate_payload_leave(channel) {
     return JSON.stringify({
-        'type': P_TYPE.LEAVE, 'channel': channel
+        'type': P_TYPE.LEAVE,
+        'channel': channel
     });
 }
 
