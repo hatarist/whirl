@@ -4,11 +4,15 @@
   <div class="row">
     <div class="col-md-4"></div>
     <div class="col-md-4 center-block">
+      <h3>Log in</h3>
+      <br>
       {% try %}
-        {% if not success %}
+        {% if success %}
+          <div class="alert alert-success" role="alert">You have signed up! Now log in!</div>
+        {% else %}
           <div class="alert alert-danger" role="alert">{{ message }}</div>
-          {% include 'partials/login_form.html' %}
         {% end %}
+        {% include 'partials/login_form.html' %}
       {% except %}
         {% include 'partials/login_form.html' %}
       {% end %}

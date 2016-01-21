@@ -4,6 +4,9 @@
   <div class="jumbotron">
     <h1>Wow!</h1>
     <p>Team messengers never were so <strike>shitty</strike> awesome!</p>
-    <p><a class="btn btn-danger btn-lg" href="{{ reverse_url('register') }}" role="button">Register</a></p>
+    <p>
+      <a class="btn btn-danger btn-lg" href="{{ reverse_url('register') }}" role="button">Register</a>
+      <a class="btn btn-primary btn-lg" href="{{ reverse_url('login') }}" role="button">Log in</a>
+    </p>
 </div>
 {% end %}
