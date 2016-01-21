@@ -25,6 +25,7 @@ define("debug", help="debug mode", type=bool)
 define("cookie_secret", help="cookie secret key", type=str)
 define("hash_salt", help="password hashing salt", type=str)
 define("sqlalchemy_db", help="sqlalchemy database uri", type=str)
+define("login_url", help="login uri", type=str)
 
 
 class AuthHandler(tornado.web.RequestHandler):
@@ -46,6 +47,7 @@ class IndexHandler(AuthHandler):
 class ChatHandler(AuthHandler):
     name = 'chat'
 
+    @tornado.web.authenticated
     def get(self):
         self.render("chat.html")
 
@@ -75,8 +77,9 @@ class LoginHandler(AuthHandler):
 class LogoutHandler(AuthHandler):
     name = 'logout'
 
+    @tornado.web.authenticated
     def get(self):
-        self.set_secure_cookie('session', '')
+        self.clear_all_cookies()
         self.redirect(self.reverse_url('index'))
 
 
@@ -112,20 +115,19 @@ class RegisterHandler(AuthHandler):
 
 
 class ChatSocketHandler(ChatServerMixin, AuthHandler, tornado.websocket.WebSocketHandler):
-    def open(self, action, nick):
-        self.USERS.append(self)
-        self.nickname = ''
-        self.logged_in = False
-
-        if action == 'login' and nick is not None:
-            # The user has connected to the websocket via a custom URL.
-            # Let's log the user in automagically right after connect
-            # without having him/her to send an additional LOGIN request
-            self.user_login(nick)
+    def open(self):
+        if self.get_current_user():
+            self.USERS.append(self)
+            self.logged_in = True
+            self.nickname = ''
+            self.user_login(self.get_current_user().username)
 
     def on_message(self, message):
         """Sends a personal/broadcast message based on the command requested."""
-        self.handle_command(json_decode(message))
+        if self.get_current_user():
+            self.handle_command(json_decode(message))
+        else:
+            self.send_error("Session is invalid.")
 
     def on_close(self):
         """Logs the user out when WebSocket connection closes."""
@@ -141,8 +143,6 @@ class Application(tornado.web.Application):
             url(r"/logout/", LogoutHandler, name=LogoutHandler.name),
             url(r"/chat/", ChatHandler, name=ChatHandler.name),
             url(r"/ws/", ChatSocketHandler, name='ws'),
-            url(r"/ws/(.*)/(.*)", ChatSocketHandler, name='ws-login'),
-            # e.g.:  /ws/login/vasya - connects successfully and automatically logs the vasya in.
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
@@ -161,6 +161,7 @@ def main():
     app = Application(
         cookie_secret=options.cookie_secret,
         debug=options.debug,
+        login_url=options.login_url,
     )
     app.listen(options.port, options.address)
     logging.info('Started a server at http://{address}:{port}/'.format(

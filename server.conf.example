@@ -4,3 +4,4 @@ debug = True
 cookie_secret = 'cr3ate_@_$ecret_k3y'
 hash_salt = 'r3ally_@wesome_$alt'
 sqlalchemy_db = 'sqlite:///whirl.db'
+login_url = '/login/'

@@ -48,5 +48,6 @@
   </body>
   <script src="{{ static_url('jquery.min.js') }}" type="text/javascript"></script>
   <script src="{{ static_url('bootstrap.min.js') }}" type="text/javascript"></script>
-  <script src="{{ static_url('chat.js') }}" type="text/javascript"></script>
+  {% block js %}
+  {% end %}
 </html>

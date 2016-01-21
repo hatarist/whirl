@@ -68,10 +68,10 @@ function handle_response(jsondata) {
 
     switch (jsondata['type']) {
         case P_TYPE.JOIN:
-            if (jsondata['user'] === window.nick) create_channel_tab(jsondata['channel']);
+            if (jsondata['user'] === $username) create_channel_tab(jsondata['channel']);
             break;
         case P_TYPE.LEAVE:
-            if (jsondata['user'] === window.nick) destroy_channel_tab(jsondata['channel']);
+            if (jsondata['user'] === $username) destroy_channel_tab(jsondata['channel']);
             break;
         case P_TYPE.LIST:
             update_user_list(jsondata['users'], jsondata['channel']);
@@ -175,42 +175,24 @@ function get_current_channel() {
     return current_channel;
 }
 
+function ws_connect() {
+    // Create a WS connection
+
+    $ws = new WebSocket("ws://" + location.host + "/ws/");
+
+    $ws.onopen = function() {};
+
+    $ws.onmessage = function(event) { 
+        var jsondata = jQuery.parseJSON(event.data);
+        handle_response(jsondata);
+        event.preventDefault();
+    }
+
+    $ws.onclose = function() {};
+}
+
 function send_message(message) {
-    if (message.search("/login") == 0) {
-
-        if (typeof ws !== 'undefined' && ws.readyState !== ws.CLOSED) {
-            // WS is already opened, no way we're allowing to create an another one!
-            print_error("You're already logged in.");
-            return;
-        }
-
-        var split = message.split(" ");
-        if(split.length != 2) return;
-
-        window.nick = split[1];
-
-        // Create a WS connection
-        ws = new WebSocket("ws://" + location.host + "/ws/login/" + window.nick);
-
-        ws.onopen = function() {
-            if ($('#chats .console .messages .row.help:first').length > 0) {
-                $('#chats .console .messages .row.help:first').remove();  // Hides the helping row
-            }
-        };
-
-        ws.onmessage = function(event) { 
-            var jsondata = jQuery.parseJSON(event.data);
-            handle_response(jsondata);
-            event.preventDefault();
-        }
-
-        ws.onclose = function() {};
-
-        return;
-    } else if (message.search("/logout") == 0) {
-        ws.send(generate_payload_logout());
-        return;
-    } else if (message.search("/join") == 0) {
+    if (message.search("/join") == 0) {
         var split = message.split(" ");
         if(split.length != 2) return;
         var channel = split[1];
@@ -219,7 +201,7 @@ function send_message(message) {
             $('#chats .console .messages .row.help:first').remove();  // Hides the helping row
         }
 
-        if (channel) ws.send(generate_payload_join(channel));
+        if (channel) $ws.send(generate_payload_join(channel));
         return;
     } else if (message.search("/leave") == 0) {
         var split = message.split(" ");
@@ -227,20 +209,20 @@ function send_message(message) {
         if(split.length == 2) channel = split[1];
         if(split.length == 1) channel = get_current_channel();
 
-        if (channel) ws.send(generate_payload_leave(channel));
+        if (channel) $ws.send(generate_payload_leave(channel));
         return;
     } else if (message.search("/list") == 0) {
-        ws.send(generate_payload_list());
+        $ws.send(generate_payload_list());
         return;
     }
 
-    if (typeof ws === 'undefined') {
+    if (typeof $ws === 'undefined') {
         print_error("Can't send a message without a connection. Please log in first.");
         return;
     }
 
     channel = get_current_channel();
-    if (channel) return ws.send(generate_payload_message(channel, message));
+    if (channel) return $ws.send(generate_payload_message(channel, message));
 }
 
 function generate_payload_message(dest, message) {
@@ -282,6 +264,8 @@ function generate_payload_leave(channel) {
 }
 
 $(function() {
+    ws_connect();
+
     $('#channels').find('a[aria-controls=server]').click();
 
     $('form[name=chat]').submit(function(e) {
